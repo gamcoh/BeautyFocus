@@ -1,145 +1,159 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:path/path.dart' show join;
+import 'package:path_provider/path_provider.dart';
 
-class CameraExample extends StatefulWidget {
-  @override
-  _CameraExampleState createState() {
-    return _CameraExampleState();
-  }
+Future<void> main() async {
+  // Ensure that plugin services are initialized so that `availableCameras()`
+  // can be called before `runApp()`
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Obtain a list of the available cameras on the device.
+  final cameras = await availableCameras();
+
+  // Get a specific camera from the list of available cameras.
+  final firstCamera = cameras.first;
+
+  runApp(
+    MaterialApp(
+      theme: ThemeData.light(),
+      home: TakePictureScreen(
+        // Pass the appropriate camera to the TakePictureScreen widget.
+        camera: firstCamera,
+      ),
+    ),
+  );
 }
 
-class _CameraExampleState extends State {
-  CameraController controller;
-  List cameras;
-  int selectedCameraIdx;
-  String imagePath;
+// A screen that allows users to take a picture using a given camera.
+class TakePictureScreen extends StatefulWidget {
+  final CameraDescription camera;
 
-  final GlobalKey _scaffoldKey = GlobalKey();
+  const TakePictureScreen({
+    Key key,
+    @required this.camera,
+  }) : super(key: key);
+
+  @override
+  TakePictureScreenState createState() => TakePictureScreenState();
+}
+
+class TakePictureScreenState extends State<TakePictureScreen> {
+  CameraController _controller;
+  Future<void> _initializeControllerFuture;
+  Widget btnIcon = Icon(Icons.camera_alt);
 
   @override
   void initState() {
     super.initState();
+    // To display the current output from the Camera,
+    // create a CameraController.
+    _controller = CameraController(
+      // Get a specific camera from the list of available cameras.
+      widget.camera,
+      // Define the resolution to use.
+      ResolutionPreset.ultraHigh,
+    );
 
-    // Get the list of available cameras.
-    // Then set the first camera as selected.
-    availableCameras().then((availableCameras) {
-      cameras = availableCameras;
+    // Next, initialize the controller. This returns a Future.
+    _initializeControllerFuture = _controller.initialize();
+  }
 
-      if (cameras.length > 0) {
-        setState(() {
-          selectedCameraIdx = 0;
-        });
-
-        _onCameraSwitched(cameras[selectedCameraIdx]).then((void v) {});
-      }
-    })
-        .catchError((err) {
-      print('Error: $err.code\nError Message: $err.message');
-    });
+  @override
+  void dispose() {
+    // Dispose of the controller when the widget is disposed.
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-
     return Scaffold(
-      key: _scaffoldKey,
-      appBar: AppBar(
-        title: const Text('BeautyFocus'),
-      ),
-      body: Container(
-        child: Center(
-          child: _cameraPreviewWidget(),
-        ),
+      appBar: AppBar(title: Text('BeautyFocus')),
+      // Wait until the controller is initialized before displaying the
+      // camera preview. Use a FutureBuilder to display a loading spinner
+      // until the controller has finished initializing.
+      body: FutureBuilder<void>(
+        future: _initializeControllerFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            // If the Future is complete, display the preview.
+            return CameraPreview(_controller);
+          } else {
+            // Otherwise, display a loading indicator.
+            return Center(child: CircularProgressIndicator());
+          }
+        },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
+        child: btnIcon,
+        // Provide an onPressed callback.
+        onPressed: () async {
+          setState(() {  
+            btnIcon = CircularProgressIndicator(
+              strokeWidth: 3.0,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            );
+          });
 
+          // Take the Picture in a try / catch block. If anything goes wrong,
+          // catch the error.
+          try {
+            // Ensure that the camera is initialized.
+            await _initializeControllerFuture;
+
+            // Construct the path where the image should be saved using the
+            // pattern package.
+            final path = join(
+              // Store the picture in the temp directory.
+              // Find the temp directory using the `path_provider` plugin.
+              (await getTemporaryDirectory()).path,
+              '${DateTime.now()}.png',
+            );
+
+            // Attempt to take a picture and log where it's been saved.
+            await _controller.takePicture(path);
+            print(_controller.value);
+            print(path);
+            var file = File(path);
+            print(file.readAsBytesSync());
+
+            // If the picture was taken, display it on a new screen.
+            // Navigator.push(
+            //   context,
+            //   MaterialPageRoute(
+            //     builder: (context) => DisplayPictureScreen(imagePath: path),
+            //   ),
+            // );
+          } catch (e) {
+            // If an error occurs, log the error to the console.
+            print(e);
+          }
         },
-        child: Icon(Icons.photo_camera),
       ),
     );
   }
-
-  /// Display 'Loading' text when the camera is still loading.
-  Widget _cameraPreviewWidget() {
-    if (controller == null || !controller.value.isInitialized) {
-      return const Text(
-        'Loading',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 20.0,
-          fontWeight: FontWeight.w900,
-        ),
-      );
-    }
-
-    return CameraPreview(controller);
-  }
-
-  Future _onCameraSwitched(CameraDescription cameraDescription) async {
-    if (controller != null) {
-      await controller.dispose();
-    }
-
-    controller = CameraController(cameraDescription, ResolutionPreset.high);
-
-    // If the controller is updated then update the UI.
-    controller.addListener(() {
-      if (mounted) {
-        setState(() {});
-      }
-
-      if (controller.value.hasError) {
-        Fluttertoast.showToast(
-          msg: 'Camera error ${controller.value.errorDescription}',
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.CENTER,
-          backgroundColor: Colors.red,
-          textColor: Colors.white
-        );
-      }
-    });
-
-    try {
-      await controller.initialize();
-    } on CameraException catch (e) {
-      _showCameraException(e);
-    }
-
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  void _showCameraException(CameraException e) {
-    String errorText = 'Error: ${e.code}\nError Message: ${e.description}';
-    print(errorText);
-
-    Fluttertoast.showToast(
-        msg: 'Error: ${e.code}\n${e.description}',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.CENTER,
-        backgroundColor: Colors.red,
-        textColor: Colors.white
-    );
-  }
 }
 
-class CameraApp extends StatelessWidget {
+// A widget that displays the picture taken by the user.
+class DisplayPictureScreen extends StatelessWidget {
+  final String imagePath;
+
+  const DisplayPictureScreen({Key key, this.imagePath}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: CameraExample(),
+    return Scaffold(
+      appBar: AppBar(title: Text('Display the Picture')),
+      // The image is stored as a file on the device. Use the `Image.file`
+      // constructor with the given path to display the image.
+      body: Image.file(File(imagePath)),
     );
   }
-}
-
-Future main() async {
-  runApp(CameraApp());
 }
