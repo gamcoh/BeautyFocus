@@ -24,9 +24,10 @@ dependencies:
   camera: ^0.5.7+4
   path_provider:
   video_player:
-  fluttertoast:
   path:
   flutter_image:
+  http: ^0.12.1
+  flutter_image_compress: ^0.6.7
 
   flutter:
     sdk: flutter
