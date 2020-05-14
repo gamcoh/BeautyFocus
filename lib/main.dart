@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path/path.dart' show join;
 import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 
 Future<void> main() async {
   // Ensure that plugin services are initialized so that `availableCameras()`
@@ -95,7 +98,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
         child: btnIcon,
         // Provide an onPressed callback.
         onPressed: () async {
-          setState(() {  
+          setState(() {
             btnIcon = CircularProgressIndicator(
               strokeWidth: 3.0,
               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
@@ -119,18 +122,28 @@ class TakePictureScreenState extends State<TakePictureScreen> {
 
             // Attempt to take a picture and log where it's been saved.
             await _controller.takePicture(path);
-            print(_controller.value);
-            print(path);
-            var file = File(path);
-            print(file.readAsBytesSync());
+
+            final resp = await sendImage(path);
+            final newImgPath = join(
+              // Store the picture in the temp directory.
+              // Find the temp directory using the `path_provider` plugin.
+              (await getTemporaryDirectory()).path,
+              '${DateTime.now()}_result.png',
+            );
+            File newImg = File(newImgPath);
+            newImg.writeAsBytesSync(resp.bodyBytes);
+
+            setState(() {
+              btnIcon = Icon(Icons.camera_alt);
+            });
 
             // If the picture was taken, display it on a new screen.
-            // Navigator.push(
-            //   context,
-            //   MaterialPageRoute(
-            //     builder: (context) => DisplayPictureScreen(imagePath: path),
-            //   ),
-            // );
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DisplayPictureScreen(imagePath: newImgPath),
+              ),
+            );
           } catch (e) {
             // If an error occurs, log the error to the console.
             print(e);
@@ -150,10 +163,29 @@ class DisplayPictureScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Display the Picture')),
-      // The image is stored as a file on the device. Use the `Image.file`
-      // constructor with the given path to display the image.
+      appBar: AppBar(title: Text('Preview')),
       body: Image.file(File(imagePath)),
     );
+  }
+}
+
+Future<http.Response> sendImage (String path) async {
+  const url = 'http://10.0.2.2:5000/postImage/';
+
+  File image = File(path);
+  List<int> bytes = await FlutterImageCompress.compressWithList(image.readAsBytesSync());
+  String imageb64 = base64Encode(bytes);
+  String filename = path.split('/').last;
+
+  try {
+    return http.post(
+      url,
+      body: <String, String>{
+        'image': imageb64,
+        'filename': filename
+      }
+    );
+  } catch (e) {
+    return Future.error(e);
   }
 }
