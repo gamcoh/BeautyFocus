@@ -24,7 +24,8 @@ class TakePictureScreen extends StatefulWidget {
 class TakePictureScreenState extends State<TakePictureScreen> {
   CameraController _controller;
   Future<void> _initializeControllerFuture;
-  Widget btnIcon = Icon(Icons.camera_alt);
+  Widget _btnIcon = Icon(Icons.camera_alt);
+  dynamic _isPressed = false;
 
   @override
   void initState() {
@@ -71,11 +72,13 @@ class TakePictureScreenState extends State<TakePictureScreen> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton(
-        child: btnIcon,
+        child: _btnIcon,
         // Provide an onPressed callback.
-        onPressed: () async {
+        onPressed: _isPressed ? null : () async {
+
           setState(() {
-            btnIcon = CircularProgressIndicator(
+            _isPressed = true;
+            _btnIcon = CircularProgressIndicator(
               strokeWidth: 3.0,
               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
             );
@@ -110,7 +113,8 @@ class TakePictureScreenState extends State<TakePictureScreen> {
             newImg.writeAsBytesSync(resp.bodyBytes);
 
             setState(() {
-              btnIcon = Icon(Icons.camera_alt);
+              _isPressed = false;
+              _btnIcon = Icon(Icons.camera_alt);
             });
 
             // If the picture was taken, display it on a new screen.
