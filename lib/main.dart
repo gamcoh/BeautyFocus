@@ -14,14 +14,16 @@ Future<void> main() async {
   final cameras = await availableCameras();
 
   // Get a specific camera from the list of available cameras.
-  final firstCamera = cameras.first;
+  final backCamera = cameras.firstWhere((element) => element.lensDirection == CameraLensDirection.back);
+  final frontCamera = cameras.firstWhere((element) => element.lensDirection == CameraLensDirection.front);
 
   runApp(
     MaterialApp(
       theme: ThemeData.light(),
       home: TakePictureScreen(
         // Pass the appropriate camera to the TakePictureScreen widget.
-        camera: firstCamera,
+        backCamera: backCamera,
+        frontCamera: frontCamera
       ),
     ),
   );
