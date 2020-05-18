@@ -23,11 +23,13 @@ environment:
 dependencies:
   camera: ^0.5.7+4
   path_provider:
-  video_player:
   path:
   flutter_image:
   http: ^0.12.1
   flutter_image_compress: ^0.6.7
+  flutter_local_notifications: ^1.4.3
+  flutter_awesome_alert_box: ^1.0.1
+  image_gallery_saver: ^1.2.2
 
   flutter:
     sdk: flutter

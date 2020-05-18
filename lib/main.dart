@@ -12,6 +12,7 @@ Future<void> main() async {
 
   // Obtain a list of the available cameras on the device.
   final cameras = await availableCameras();
+  print(cameras);
 
   // Get a specific camera from the list of available cameras.
   final backCamera = cameras.firstWhere((element) => element.lensDirection == CameraLensDirection.back);

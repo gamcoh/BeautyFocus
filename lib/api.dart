@@ -15,7 +15,7 @@ class Api {
     const url = APP.api_url + '/postImage/';
 
     try {
-      return http.post(
+      return await http.post(
         url,
         body: <String, String>{
           'image': imageb64,

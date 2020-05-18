@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_awesome_alert_box/flutter_awesome_alert_box.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:path/path.dart' show join;
 import 'package:path_provider/path_provider.dart';
 import 'package:camera/camera.dart';
@@ -26,14 +29,25 @@ class TakePictureScreen extends StatefulWidget {
 class TakePictureScreenState extends State<TakePictureScreen> {
   CameraController _controller;
   Future<void> _initializeControllerFuture;
-  Widget _btnIcon = Icon(Icons.camera_alt);
   dynamic _isPressed = false;
   dynamic _useBackCamera = true;
   CameraDescription usedCamera;
+  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+
+  File _previewImage;
+  String _previewImagePath;
 
   @override
   void initState() {
     super.initState();
+
+    // init the notifications
+    var initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+    var initializationSettingsIos = IOSInitializationSettings();
+    var initializationSettings = InitializationSettings(initializationSettingsAndroid, initializationSettingsIos);
+    flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
     // To display the current output from the Camera,
     // create a CameraController.
     usedCamera = widget.backCamera;
@@ -56,25 +70,54 @@ class TakePictureScreenState extends State<TakePictureScreen> {
     super.dispose();
   }
 
+  Future _showNotification({String title='<b>Success</b>', String content}) async {
+    var androidPlatformChannelSpecifics = new AndroidNotificationDetails(
+      '0',
+      'main_channel',
+      'main channel of the application',
+      playSound: false,
+      importance: Importance.Max,
+      priority: Priority.High,
+      styleInformation: DefaultStyleInformation(true, true)
+    );
+    var iOSPlatformChannelSpecifics =
+        new IOSNotificationDetails(presentSound: false);
+    var platformChannelSpecifics = new NotificationDetails(
+        androidPlatformChannelSpecifics, iOSPlatformChannelSpecifics);
+    
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      title,
+      content,
+      platformChannelSpecifics,
+      payload: 'No_Sound',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
     return Scaffold(
-      appBar: AppBar(title: Text('BeautyFocus')),
-      // Wait until the controller is initialized before displaying the
-      // camera preview. Use a FutureBuilder to display a loading spinner
-      // until the controller has finished initializing.
-      body: FutureBuilder<void>(
-        future: _initializeControllerFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            // If the Future is complete, display the preview.
-            return CameraPreview(_controller);
-          } else {
-            // Otherwise, display a loading indicator.
-            return Center(child: CircularProgressIndicator());
-          }
-        },
+      appBar: AppBar(title: Text('BeautyFocus'),),
+      body: Stack(
+        children: <Widget>[
+          // Wait until the controller is initialized before displaying the
+          // camera preview. Use a FutureBuilder to display a loading spinner
+          // until the controller has finished initializing.
+          FutureBuilder<void>(
+            future: _initializeControllerFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.done) {
+                // If the Future is complete, display the preview.
+                return CameraPreview(_controller);
+              } else {
+                // Otherwise, display a loading indicator.
+                return Center(child: CircularProgressIndicator());
+              }
+            }
+          ),
+          DisplayPictureScreen(image: _previewImage),
+        ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: Stack(
@@ -82,17 +125,15 @@ class TakePictureScreenState extends State<TakePictureScreen> {
           Align(
             alignment: Alignment.bottomCenter,
             child: FloatingActionButton(
-              heroTag: 'takePicture',
-              child: _btnIcon,
+              heroTag: 'savePicture',
+              child: _isPressed ? CircularProgressIndicator(
+                strokeWidth: 3.0,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ) : Icon(Icons.camera_alt),
               // Provide an onPressed callback.
               onPressed: _isPressed ? null : () async {
-
                 setState(() {
                   _isPressed = true;
-                  _btnIcon = CircularProgressIndicator(
-                    strokeWidth: 3.0,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  );
                 });
 
                 // Take the Picture in a try / catch block. If anything goes wrong,
@@ -125,21 +166,59 @@ class TakePictureScreenState extends State<TakePictureScreen> {
 
                   setState(() {
                     _isPressed = false;
-                    _btnIcon = Icon(Icons.camera_alt);
+                    _previewImage = newImg;
+                    _previewImagePath = newImgPath;
                   });
-
-                  // If the picture was taken, display it on a new screen.
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => DisplayPictureScreen(imagePath: newImgPath),
-                    ),
-                  );
                 } catch (e) {
-                  // If an error occurs, log the error to the console.
-                  print(e);
+                  setState(() {
+                    _isPressed = false;
+                  });
+                  DangerBgAlertBox(
+                    context: context,
+                    title: 'A problem occured',
+                    infoMessage: 'Oops! Maybe try another time? sorry...'
+                  );
                 }
               },
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Visibility(
+              visible: _previewImage != null,
+              child: FloatingActionButton(
+                heroTag: 'savePicture',
+                backgroundColor: Colors.deepOrange,
+                child: Icon(Icons.save_alt),
+                onPressed: () async {
+                  try {
+                    await ImageGallerySaver.saveFile(_previewImagePath);
+                    _showNotification(content: 'The image was saved in your library');
+                    setState(() {
+                      _previewImage = null;
+                    });
+                  } catch (e) {
+                    print(e);
+                  }
+                },
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomRight,
+            child: Visibility(
+              visible: _previewImage != null,
+              child: FloatingActionButton(
+                mini: true,
+                heroTag: 'discardImage',
+                backgroundColor: Colors.red,
+                child: Icon(Icons.close),
+                onPressed: () {
+                  setState(() {
+                    _previewImage = null;
+                  });
+                },
+              ),
             ),
           ),
           Align(
