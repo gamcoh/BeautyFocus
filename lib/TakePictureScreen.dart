@@ -35,7 +35,6 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
 
   File _previewImage;
-  String _previewImagePath;
 
   @override
   void initState() {
@@ -167,7 +166,6 @@ class TakePictureScreenState extends State<TakePictureScreen> {
                   setState(() {
                     _isPressed = false;
                     _previewImage = newImg;
-                    _previewImagePath = newImgPath;
                   });
                 } catch (e) {
                   setState(() {
@@ -192,7 +190,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
                 child: Icon(Icons.save_alt),
                 onPressed: () async {
                   try {
-                    await ImageGallerySaver.saveFile(_previewImagePath);
+                    await ImageGallerySaver.saveImage(_previewImage.readAsBytesSync());
                     _showNotification(content: 'The image was saved in your library');
                     setState(() {
                       _previewImage = null;
