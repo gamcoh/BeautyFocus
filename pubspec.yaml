@@ -30,6 +30,7 @@ dependencies:
   flutter_local_notifications: ^1.4.3
   flutter_awesome_alert_box: ^1.0.1
   image_gallery_saver: ^1.2.2
+  permission_handler: ^5.0.0+hotfix.6
 
   flutter:
     sdk: flutter

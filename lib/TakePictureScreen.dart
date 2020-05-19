@@ -8,6 +8,7 @@ import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:path/path.dart' show join;
 import 'package:path_provider/path_provider.dart';
 import 'package:camera/camera.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'api.dart';
 import 'DisplayPictureScreen.dart';
@@ -190,11 +191,13 @@ class TakePictureScreenState extends State<TakePictureScreen> {
                 child: Icon(Icons.save_alt),
                 onPressed: () async {
                   try {
-                    await ImageGallerySaver.saveImage(_previewImage.readAsBytesSync());
-                    _showNotification(content: 'The image was saved in your library');
-                    setState(() {
-                      _previewImage = null;
-                    });
+                    if (await Permission.storage.request().isGranted) { 
+                      await ImageGallerySaver.saveImage(_previewImage.readAsBytesSync());
+                      _showNotification(content: 'The image was saved in your library');
+                      setState(() {
+                        _previewImage = null;
+                      });
+                    }
                   } catch (e) {
                     print(e);
                   }
