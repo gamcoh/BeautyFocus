@@ -1,1 +1,1 @@
-const String api_url = 'http://beautyfocus.gamlielcohen.com';
+const String api_url = 'http://10.0.2.2:5000';
