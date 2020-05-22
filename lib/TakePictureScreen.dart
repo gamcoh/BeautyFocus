@@ -56,7 +56,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
       // Get a specific camera from the list of available cameras.
       usedCamera,
       // Define the resolution to use.
-      ResolutionPreset.ultraHigh,
+      ResolutionPreset.medium
     );
 
     // Next, initialize the controller. This returns a Future.
@@ -239,7 +239,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
                       ? widget.backCamera
                       : widget.frontCamera;
 
-                    _controller = CameraController(usedCamera, ResolutionPreset.ultraHigh);
+                    _controller = CameraController(usedCamera, ResolutionPreset.medium);
                     _initializeControllerFuture = _controller.initialize();
                   });
                 },
